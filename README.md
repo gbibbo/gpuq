@@ -67,6 +67,6 @@ gpuq.toml        your settings (copy gpuq.toml.example)
 
 ## Status
 
-Version 0.1, October 2026. The dispatcher design has run the full experiments of one paper on Colab
+Version 0.1, October 2026. MIT license. The dispatcher design has run the full experiments of one paper on Colab
 and Kaggle. This general version passes its tests against simulated Colab and Kaggle CLIs. Report
 problems to the person who shared it with you.
