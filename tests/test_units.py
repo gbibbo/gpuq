@@ -193,7 +193,8 @@ def _run_script(tmp_path, p):
     return r.returncode, r.stdout + r.stderr
 
 
-JOB = '''import os
+JOB = '''import os, sys
+print("exe", os.path.realpath(sys.executable), flush=True)
 from gpuq.storage import Remote
 print("FOO", os.environ["FOO"], "remote", os.environ["GPUQ_REMOTE"] is not None, flush=True)
 Remote.from_env().put_json({"ok": True}, "r.json")
@@ -209,6 +210,8 @@ def test_foreground_run_checks_out_code_and_helpers_and_reports(tmp_path):
     assert json.loads((tmp_path / "remote" / "r.json").read_text()) == {"ok": True}
     assert (tmp_path / "home" / ".config" / "rclone" / "rclone.conf").read_text().startswith("[r]")
     assert creds.exists()                                             # Kaggle cannot delete its dataset
+    if os.name != "nt":                                               # `python` is the interpreter of the setup
+        assert f"exe {os.path.realpath(sys.executable)}" in out
 
 
 def test_foreground_errors_are_marked(tmp_path):

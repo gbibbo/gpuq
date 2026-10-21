@@ -24,7 +24,7 @@ DEFAULTS = {
     "colab": {
         "enabled": True,
         "session": "gpuq",    # name of the Colab CLI session
-        "cpu_jobs": False,    # CPU-only Colab VMs have died during large uploads (docs/HOW_IT_WORKS.md)
+        "cpu_jobs": False,    # CPU-only Colab VMs have died about 12 min after assignment (docs/HOW_IT_WORKS.md)
     },
     "kaggle": {
         "enabled": True,

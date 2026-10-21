@@ -105,16 +105,12 @@ Using them does not change the rules. Read the
 
 ## Known issues
 
-**Colab CPU VMs die when they start a large upload.** On 20 October 2026 a free Colab VM without GPU
-died between 40 and 70 seconds after rclone started uploading a 2.8 GB file to Google Drive at about
-33 MB/s. Memory, disk and CPU were normal until the end. The same had happened in earlier runs. Whether
-VMs with a GPU behave the same is being checked. Colab does not publish the reason. Until it is clear,
-CPU-only jobs go to Kaggle by default (`colab.cpu_jobs = false`), and jobs that upload several GB at once
-are better sent to Kaggle (`--platform kaggle`). Regular checkpoints of moderate size have caused no
-trouble.
-
-**Colab VMs arrive warm.** A VM can have been running for about 11 minutes before it is assigned to you.
-Its limits, whatever they are, may count from boot and not from assignment.
+**Colab CPU-only VMs are short-lived.** Free Colab VMs without GPU, driven by the CLI, have died 12 to
+13.5 minutes after they were assigned, with memory, disk and CPU normal until the end (measured in
+October 2026). Colab hands out VMs that are already running. One of them had been up for 11.5 minutes
+when it was assigned and died about 22.5 minutes after it booted. A 3 GB upload to Drive on a freshly
+booted CPU VM did not kill it. VMs with a T4 GPU have run for more than 4 hours. Colab does not publish
+its limits. For this reason CPU-only jobs go to Kaggle by default (`colab.cpu_jobs = false`).
 
 **No CLI cancel on Kaggle.** Kaggle CLI 2.2.4 cannot stop a running notebook. `gpuq cancel` records the
 cancellation and the notification links to the page where you click **Cancel run**.

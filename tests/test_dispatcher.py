@@ -111,12 +111,12 @@ def test_kaggle_without_quota_rests_and_notifies(world, monkeypatch):
 
 
 def test_cancel_a_running_colab_job_and_a_pending_one(world, monkeypatch):
-    set_queue(world, {"id": "long", "cmd": "python job.py --sleep 4", "platform": "colab"},
+    set_queue(world, {"id": "long", "cmd": "python job.py --sleep 20", "platform": "colab"},
               {"id": "later", "cmd": "python job.py", "platform": "colab"})
     d = make(world, monkeypatch)
     run_until(d, lambda r: (d.state["lanes"]["colab"] or {}).get("job") == "long" and
               "job running" in d.attempt_log("long", 1).read_text())
-    set_queue(world, {"id": "long", "cmd": "python job.py --sleep 4", "platform": "colab", "cancel": True},
+    set_queue(world, {"id": "long", "cmd": "python job.py --sleep 20", "platform": "colab", "cancel": True},
               {"id": "later", "cmd": "python job.py", "platform": "colab", "cancel": True})
     run_until(d, lambda r: statuses(r, "long", "later") == ("cancelled", "cancelled"))
     assert d.state["jobs"]["long"]["last_outcome"] == "cancelled" and "attempts" not in d.state["jobs"]["later"]

@@ -134,5 +134,4 @@ gpuq add eval-1 --cmd "python eval.py --run train-1" --depends-on train-1 --gpu 
 - [ ] Interrupt it on purpose. Cancel it while it runs, add it again with a new id and the same
       `--run`, and check in `gpuq logs` that it resumed.
 - [ ] Checkpoints and outputs appear on the remote (`rclone ls gdrive:gpuq/checkpoints`).
-- [ ] No file of several GB is uploaded at once from Colab (HOW_IT_WORKS.md, known issues).
 - [ ] The run fits in 12 hours per attempt, or it resumes.

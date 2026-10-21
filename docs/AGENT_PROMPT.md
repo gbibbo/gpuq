@@ -105,7 +105,8 @@ Summary of ONBOARDING.md
     `./install.sh update`.
 13. Troubleshooting. Dispatcher silent: `./install.sh status` and `docker exec gpuq gpuq doctor`.
     setup_error or job_error: `gpuq logs <id>`. Many interruptions: the job must resume from checkpoints,
-    and multi-GB uploads at once from Colab have killed VMs, so send those jobs to Kaggle. Kaggle fails at
+    and CPU-only Colab VMs die about 12 minutes after assignment, which is why CPU jobs go to Kaggle
+    unless colab.cpu_jobs is true. Kaggle fails at
     once: phone not verified, dataset missing or weekly quota spent. Drive stops working after a week:
     the Google app is still in Testing, publish it and redo 6c and `./install.sh setup --only storage
     kaggle_dataset`.

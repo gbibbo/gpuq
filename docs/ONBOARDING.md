@@ -293,7 +293,7 @@ the new settings when no Colab job is running.
 | A job stays `pending` | its dependencies are not done, its platform is disabled or busy, or Colab gives no GPU right now. `gpuq status` shows the lanes |
 | `setup_error` | the setup command or the checkout failed. `gpuq logs <id>` shows why. Often a missing package in `requirements.txt` or a wrong `ref` |
 | `job_error` | your command exited with an error. `gpuq logs <id>` |
-| Many `interrupted` attempts | the machine was lost each time. Make sure the job resumes (WRITING_JOBS.md). Big uploads from Colab, see HOW_IT_WORKS.md |
+| Many `interrupted` attempts | the machine was lost each time. Make sure the job resumes (WRITING_JOBS.md). CPU-only jobs on Colab, see the known issues in HOW_IT_WORKS.md |
 | Kaggle jobs fail at once | phone not verified, the credentials dataset missing, or the weekly quota spent. `docker exec gpuq gpuq doctor` |
 | Notification "Colab login needed" | `docker exec -it gpuq colab sessions` and sign in again |
 | Jobs stopped saving to Drive after a week | the Google app is still in Testing. Publish it (6b), then redo 6c and `./install.sh setup --only storage kaggle_dataset` |

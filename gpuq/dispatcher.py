@@ -199,8 +199,6 @@ class Dispatcher:
         self.sha = sha if re.fullmatch(r"[0-9a-f]{40}", sha) else "unknown"
         self.next_code_check = time.time() + self.t["code_check_s"]
         self.last_log_publish = {}
-        self.settings_for_lanes = {**settings, "kaggle": {**settings["kaggle"],
-                                                          "enabled": self.kaggle_ready()}}
 
     # ---------------------------------------------------------------- helpers
     def kaggle_ready(self) -> bool:

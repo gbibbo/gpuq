@@ -184,11 +184,30 @@ def run_setup(setup, cwd, env):
     say(f"setup done in {time.time() - t0:.0f} s")
 
 
+def python_shims(bin_dir):
+    """`python`, `python3` and `pip` in the job's PATH are the interpreter that runs this file, the one
+    the setup installs into. On a platform image the first `python` in PATH can be another one."""
+    os.makedirs(bin_dir, exist_ok=True)
+    if os.name == "nt":
+        return bin_dir
+    for name in ("python", "python3"):
+        link = os.path.join(bin_dir, name)
+        if os.path.lexists(link):
+            os.remove(link)
+        os.symlink(sys.executable, link)
+    pip = os.path.join(bin_dir, "pip")
+    with open(pip, "w") as fh:
+        fh.write(f'#!/bin/sh\nexec "{sys.executable}" -m pip "$@"\n')
+    os.chmod(pip, 0o755)
+    return bin_dir
+
+
 def job_env(p, code_dir, ops_dir, sha):
     env = {**os.environ, "GPUQ_JOB_ID": p["job_id"], "GPUQ_ATTEMPT": str(p["attempt"]),
            "GPUQ_PLATFORM": p["platform"], "GPUQ_CODE_DIR": code_dir, "GPUQ_CODE_SHA": sha,
            "GPUQ_OPS_REPO": p.get("ops_repo") or "", "GPUQ_SCRATCH": p["scratch"], "PYTHONUNBUFFERED": "1",
            "PYTHONIOENCODING": "utf-8"}
+    env["PATH"] = python_shims(os.path.join(p["workdir"], "bin")) + os.pathsep + env.get("PATH", "")
     if p.get("remote"):
         env["GPUQ_REMOTE"] = p["remote"]
     if ops_dir:
