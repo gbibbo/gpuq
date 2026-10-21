@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+build/
+dist/
+.venv/
+# secrets never live in the repo
+secrets/
+credentials.json
+rclone.conf
+kaggle_token
+ntfy_topic
+.env

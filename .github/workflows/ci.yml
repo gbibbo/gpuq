@@ -1,0 +1,33 @@
+# Tests on every push and pull request. No network, no Colab, no Kaggle: fake CLIs and local git repos.
+name: tests
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      matrix:
+        python: ["3.11", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Reject committed secrets
+        run: |
+          if git ls-files | grep -iE '(^|/)(credentials\.json|rclone\.conf|kaggle_token|ntfy_topic|\.env)$'; then
+            echo "secrets must never be committed"; exit 1; fi
+          if git grep -nE '(github_pat_[A-Za-z0-9_]{20,}|ghp_[A-Za-z0-9]{30,}|hf_[A-Za-z0-9]{30,}|GOCSPX-[A-Za-z0-9_-]{20,})'; then
+            echo "something that looks like a real token is committed"; exit 1; fi
+      - run: pip install pytest
+      - run: git config --global user.name ci && git config --global user.email ci@example.com
+      - run: python -m pytest -q
+      - name: Shell scripts parse
+        run: bash -n install.sh && sh -n docker/gpuq-cli

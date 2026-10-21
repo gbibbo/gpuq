@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gpuq"
+version = "0.1.0"
+description = "A personal job queue for free Colab and Kaggle machines, run from an always-on computer"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+test = ["pytest>=8"]
+
+[project.scripts]
+gpuq = "gpuq.cli:main"
+
+[tool.setuptools]
+packages = ["gpuq"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

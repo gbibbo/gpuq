@@ -1,0 +1,21 @@
+# gpuq settings. Copy this file to gpuq.toml, fill it in, commit and push.
+# No secrets here: those live only on the dispatcher machine (gpuq setup puts them there).
+# Every key and its default is explained in gpuq/settings.py.
+
+[github]
+ops_repo = "your-github-user/gpuq"           # this repo: queue on branch jobs, status and logs on branch runs
+code_repo = "your-github-user/your-research" # repo your jobs check out unless a job names another one
+ref = "main"                                 # its branch, tag or commit
+
+[colab]
+enabled = true
+
+[kaggle]
+enabled = true
+username = "your-kaggle-username"
+
+[storage]
+remote = "gdrive:gpuq"                       # rclone remote:folder for checkpoints and results, "" for none
+
+[jobs]
+gpu = "T4"                                   # default for jobs: T4 (Colab's free GPU) or CPU

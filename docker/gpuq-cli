@@ -1,0 +1,6 @@
+#!/bin/sh
+# `gpuq` inside the container. Uses the clone that install.sh mounts at /app (the one you edit on this
+# machine) and falls back to the dispatcher's own checkout in /data/repo.
+if [ -f /app/gpuq/cli.py ]; then root=/app; else root=/data/repo; fi
+export GPUQ_REPO_DIR="${GPUQ_REPO_DIR:-$root}"
+PYTHONPATH="$root" exec python -m gpuq "$@"
