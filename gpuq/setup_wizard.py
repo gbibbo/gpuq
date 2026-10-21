@@ -130,6 +130,39 @@ def check_rclone(conf: str, remote: str) -> tuple:
     return True, f"{remote} is reachable"
 
 
+def http_status(url: str, timeout: float = 30) -> int:
+    """HTTP status of an anonymous GET, 0 when the site cannot be reached."""
+    try:
+        with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "gpuq"}), timeout=timeout) as r:
+            return r.status
+    except urllib.error.HTTPError as exc:
+        return exc.code
+    except Exception:
+        return 0
+
+
+def check_kaggle_dataset(user: str, dataset: str, token: str) -> tuple:
+    """(ok, detail): the credentials dataset exists and nobody can read it without your login. Kaggle's
+    API answers an anonymous request with 200 for a public dataset and 403 for a private one."""
+    if not (user and token):
+        return False, "needs the Kaggle token and kaggle.username in gpuq.toml"
+    ref = f"{user}/{dataset}"
+    try:
+        r = subprocess.run(["kaggle", "datasets", "status", ref], capture_output=True, text=True, timeout=120,
+                           stdin=subprocess.DEVNULL, env={**os.environ, "KAGGLE_API_TOKEN": token})
+    except Exception as exc:
+        return False, repr(exc)
+    if r.returncode or "ready" not in r.stdout.lower():
+        return False, f"{ref} does not exist yet. Run: gpuq setup --only kaggle_dataset"
+    code = http_status(f"https://www.kaggle.com/api/v1/datasets/view/{ref}")
+    if code == 200:
+        return False, (f"{ref} is PUBLIC and anyone can read your tokens. Make it private on kaggle.com now, "
+                       "then revoke and replace every token in it")
+    if code == 0:
+        return False, "could not reach kaggle.com to check that the dataset is private"
+    return True, f"{ref} is private"
+
+
 def check_hf(token: str) -> tuple:
     if not token:
         return False, "no token"
@@ -296,6 +329,9 @@ def step_kaggle_dataset(io, s, creds, d, state_dir):
     rc, out = kaggle.publish_credentials(secrets.load_credentials(d), s["kaggle"]["username"], s["kaggle"]["dataset"],
                                          env={**os.environ, "KAGGLE_API_TOKEN": token})
     io.out(("ok. " if rc == 0 else "  problem: ") + out[-600:])
+    if rc == 0:
+        ok, detail = check_kaggle_dataset(s["kaggle"]["username"], s["kaggle"]["dataset"], token)
+        io.out(("ok, " if ok else "  problem: ") + detail)
 
 
 STEP_FUNCS = {"github": step_github, "colab": step_colab, "kaggle": step_kaggle, "storage": step_storage,
@@ -344,8 +380,11 @@ def doctor(s: dict, root: Path, out=print, secrets_dir=None) -> int:
         ok, detail = check_colab(interactive=False)
         item("Colab sign-in", ok, detail + ". Run: docker exec -it gpuq colab sessions")
     if s["kaggle"]["enabled"]:
-        ok, detail = check_kaggle(secrets.read(secrets.KAGGLE_TOKEN, d))
+        ktoken = secrets.read(secrets.KAGGLE_TOKEN, d)
+        ok, detail = check_kaggle(ktoken)
         item("Kaggle token", ok, detail)
+        ok, detail = check_kaggle_dataset(s["kaggle"]["username"], s["kaggle"]["dataset"], ktoken)
+        item("Kaggle credentials dataset is private", ok, detail)
     if s["storage"]["remote"]:
         ok, detail = check_rclone(creds.get("RCLONE_CONF"), s["storage"]["remote"])
         item("rclone storage", ok, detail)
