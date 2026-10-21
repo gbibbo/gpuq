@@ -1,0 +1,2 @@
+# Colab and Kaggle already have torch. Anything else your code needs goes here.
+numpy>=1.24

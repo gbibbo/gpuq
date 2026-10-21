@@ -60,7 +60,7 @@ use section of [HOW_IT_WORKS.md](docs/HOW_IT_WORKS.md#fair-use) before you rely 
 gpuq/            the package: CLI, dispatcher, VM-side code, storage helpers
 docker/          the dispatcher's image
 install.sh       installs and updates the dispatcher on the always-on computer
-examples/        a first job and a resumable toy training run
+examples/        a first job, a resumable toy training run and a resumable PyTorch training
 tests/           run with python -m pytest (fake Colab and Kaggle CLIs, no network)
 gpuq.toml        your settings (copy gpuq.toml.example)
 ```
