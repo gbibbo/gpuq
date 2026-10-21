@@ -108,3 +108,25 @@ def test_setup_refuses_a_broken_gpuq_toml(tmp_path):
     io = Script([], [])
     assert setup_wizard.run(s, tmp_path, io=io, secrets_dir=tmp_path / "s") == 2
     assert any("ops_repo is empty" in line for line in io.lines)
+
+
+def test_upgrade_takes_the_new_version_and_keeps_gpuq_toml(clone, tmp_path, capsys):
+    work = tmp_path / "laptop"
+    git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-am", "my settings", cwd=work)
+    mine = (work / "gpuq.toml").read_text()
+    upstream = bare_repo(tmp_path / "upstream.git", {"gpuq.toml": "upstream placeholder\n", "gpuq/new.py": "v2\n",
+                                                     "README.md": "new readme\n"})
+    with pytest.raises(SystemExit):  # an uncommitted change stops it
+        (work / "gpuq.toml").write_text(mine + "# edit\n")
+        cli.main(["upgrade", "--upstream", str(upstream)])
+    git("checkout", "--", "gpuq.toml", cwd=work)
+    git("config", "user.name", "t", cwd=work)
+    git("config", "user.email", "t@t", cwd=work)
+    capsys.readouterr()
+    cli.main(["upgrade", "--upstream", str(upstream)])
+    assert "committed the upgrade" in capsys.readouterr().out
+    assert (work / "gpuq" / "new.py").read_text() == "v2\n" and (work / "README.md").read_text() == "new readme\n"
+    assert (work / "gpuq.toml").read_text() == mine
+    assert "gpuq: upgrade to" in git("log", "-1", "--format=%s", cwd=work)
+    cli.main(["upgrade", "--upstream", str(upstream)])
+    assert "already up to date" in capsys.readouterr().out

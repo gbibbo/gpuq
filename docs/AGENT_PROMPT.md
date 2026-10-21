@@ -101,8 +101,8 @@ Summary of ONBOARDING.md
     --cmd "python examples/resumable_train.py" --no-setup --gpu CPU`. Job ids are never reused.
 12. Day to day. `gpuq status`, `gpuq logs <id>`, `gpuq cancel <id>` (Kaggle runs also need Cancel run on
     kaggle.com). Expired GitHub token: new token, then `./install.sh setup --only github kaggle_dataset`.
-    Colab sign-in lost: `docker exec -it gpuq colab sessions`. Update: merge the new gpuq version, push,
-    `./install.sh update`.
+    Colab sign-in lost: `docker exec -it gpuq colab sessions`. Update: `gpuq upgrade` on the laptop (keeps
+    gpuq.toml), `git push`, then `./install.sh update` on the always-on computer.
 13. Troubleshooting. Dispatcher silent: `./install.sh status` and `docker exec gpuq gpuq doctor`.
     setup_error or job_error: `gpuq logs <id>`. Many interruptions: the job must resume from checkpoints,
     and CPU-only Colab VMs die about 12 minutes after assignment, which is why CPU jobs go to Kaggle

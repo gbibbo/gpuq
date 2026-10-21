@@ -19,7 +19,7 @@ A job is a shell command run at the root of your code repository, on a fresh mac
 | `GPUQ_PLATFORM` | `colab` or `kaggle` |
 | `GPUQ_REMOTE` | your storage, e.g. `gdrive:gpuq` (when `storage.remote` is set) |
 | `RCLONE_CONFIG` | path of the rclone config on the machine |
-| `GPUQ_SCRATCH` | a local folder for temporary files, lost with the machine |
+| `GPUQ_SCRATCH` | a local folder for temporary files, lost with the machine (on Kaggle, files in `/kaggle/working` are kept as the notebook's output instead) |
 | `GPUQ_CODE_SHA` | the commit that is running |
 | `HF_TOKEN`, `GITHUB_TOKEN` and your own secrets | as set in `gpuq setup` |
 

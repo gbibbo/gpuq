@@ -4,7 +4,7 @@
 #
 #   ./install.sh            build the image, start the dispatcher and run gpuq setup
 #   ./install.sh setup      run gpuq setup again (all steps, or e.g. ./install.sh setup --only kaggle)
-#   ./install.sh update     pull this clone, rebuild the image and restart the dispatcher
+#   ./install.sh update     pull this clone (after gpuq upgrade on your laptop), rebuild, restart
 #   ./install.sh status     container state and the last lines of its log
 #   ./install.sh uninstall  stop and remove the container (keeps ~/gpuq-data with your secrets)
 #
@@ -77,9 +77,29 @@ start() {
     "$IMAGE" >/dev/null
 }
 
+own() {
+  # The container writes as root. Give the files back to you, still readable only by you.
+  docker exec "$NAME" chown -R "$(id -u):$(id -g)" /secrets /root/.config/colab-cli 2>/dev/null || true
+}
+
+pull() {
+  # git pull of this private clone with the token saved by gpuq setup, passed in a header (never in a URL)
+  local token basic
+  token="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("GITHUB_TOKEN", ""))' \
+           "$DATA/secrets/credentials.json" 2>/dev/null || true)"
+  if [ -z "$token" ]; then
+    git pull --ff-only
+    return
+  fi
+  basic="$(printf 'x-access-token:%s' "$token" | base64 | tr -d '\n')"
+  GIT_TERMINAL_PROMPT=0 GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=http.https://github.com/.extraheader \
+    GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $basic" git pull --ff-only
+}
+
 setup() {
   say "Accounts and keys, step by step (docs/ONBOARDING.md explains each one)"
   docker exec -it "$NAME" gpuq setup "$@"
+  own
   docker restart "$NAME" >/dev/null
   say "Done. Follow the dispatcher with: docker logs -f $NAME"
 }
@@ -91,8 +111,9 @@ case "${1:-install}" in
     shift; need_docker; setup "$@" ;;
   update)
     need_docker
-    git pull --ff-only || echo "warning: could not fast-forward this clone, building what is here"
-    build; start
+    own
+    pull || echo "warning: could not fast-forward this clone, building what is here"
+    build; start; own
     say "Updated. The dispatcher restarted. Logs: docker logs -f $NAME" ;;
   status)
     need_docker

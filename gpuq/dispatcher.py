@@ -400,6 +400,10 @@ class Dispatcher:
     def kernel_ref(self) -> str:
         return f"{self.s['kaggle']['username']}/{self.s['kaggle']['kernel']}"
 
+    def kaggle_log(self) -> tuple:
+        """(rc, whole log) of the latest run, running or finished, as `kaggle kernels logs` gives it."""
+        return run_capture([*self.kaggle_cmd, "kernels", "logs", self.kernel_ref()], 300, env=self.kaggle_env)
+
     def _kaggle_push(self, job: dict, n: int):
         folder = self.job_dir(job["id"]) / f"kaggle-kernel-{n:02d}"
         k = self.s["kaggle"]
@@ -437,17 +441,22 @@ class Dispatcher:
                 self.finish("kaggle", job, "interrupted", "the Kaggle run passed 13 h")
             elif time.time() - self.last_log_publish.get((job["id"], n), 0) >= self.t["log_publish_s"]:
                 live_path = self.job_dir(job["id"]) / f"kaggle-live-{n:02d}.log"
-                rc_l, live = self._kaggle("kernels", "logs", self.kernel_ref(), timeout=120)
-                if rc_l == 0 and live.strip():  # best effort: the log so far, when Kaggle gives it
+                rc_l, live = self.kaggle_log()
+                if rc_l == 0 and live.strip():  # the log so far
                     live_path.write_text(log_path.read_text(encoding="utf-8", errors="replace") +
                                          kaggle.log_text(live.encode("utf-8")), encoding="utf-8")
                 self.publish_log(job["id"], n, live_path if live_path.exists() else log_path)
             return
-        dest = self.job_dir(job["id"]) / f"kaggle-output-{n:02d}"
-        dest.mkdir(parents=True, exist_ok=True)
-        self._kaggle("kernels", "output", self.kernel_ref(), "-p", str(dest), "-o", "-q", timeout=900)
-        logs = sorted(dest.glob("*.log"))
-        text = kaggle.log_text(logs[0].read_bytes()) if logs else out
+        rc_l, text = self.kaggle_log()
+        text = kaggle.log_text(text.encode("utf-8")) if rc_l == 0 else ""
+        if not text.strip():
+            # `kernels output` also downloads every file left in /kaggle/working, one by one, so it is
+            # only the fallback. A timeout here must not turn a finished job into a cut one.
+            dest = self.job_dir(job["id"]) / f"kaggle-output-{n:02d}"
+            dest.mkdir(parents=True, exist_ok=True)
+            self._kaggle("kernels", "output", self.kernel_ref(), "-p", str(dest), "-o", "-q", timeout=900)
+            logs = sorted(dest.glob("*.log"))
+            text = kaggle.log_text(logs[0].read_bytes()) if logs else out
         with open(log_path, "a", encoding="utf-8") as fh:
             fh.write(text)
         tail = text[-6000:]

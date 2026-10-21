@@ -31,8 +31,9 @@ def colab_paths(root: str = COLAB_ROOT) -> dict:
             "log": f"{root}/gpuq_job.log", "rc": f"{root}/gpuq_job.rc"}
 
 
-def kaggle_paths(working: str = KAGGLE_WORKING, inputs: str = KAGGLE_INPUT, scratch: str = "/tmp/gpuq-scratch") -> dict:
-    return {"creds_globs": [f"{inputs}/**/{CREDENTIALS_FILE}"], "workdir": f"{working}/gpuq", "scratch": scratch}
+def kaggle_paths(workdir: str = "/tmp/gpuq", inputs: str = KAGGLE_INPUT, scratch: str = "/tmp/gpuq-scratch") -> dict:
+    """Kaggle keeps whatever is left in /kaggle/working as the notebook's output, so gpuq works in /tmp."""
+    return {"creds_globs": [f"{inputs}/**/{CREDENTIALS_FILE}"], "workdir": workdir, "scratch": scratch}
 
 
 def params(job: dict, attempt: int, platform: str, ops_repo: str, ops_sha: str, remote: str, paths: dict,
