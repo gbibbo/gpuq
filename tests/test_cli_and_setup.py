@@ -83,6 +83,7 @@ def test_setup_saves_checked_values_and_never_echoes_them(tmp_path, monkeypatch)
     monkeypatch.setattr(setup_wizard, "check_hf", lambda token: (True, "Hugging Face user me"))
     monkeypatch.setattr(setup_wizard.notify, "send", lambda *a, **k: True)
     published = []
+    monkeypatch.setattr(setup_wizard, "check_kaggle_dataset", lambda user, dataset, token: (True, "private"))
     monkeypatch.setattr(setup_wizard.kaggle, "publish_credentials",
                         lambda creds, user, dataset, env=None: published.append((creds, user, dataset)) or (0, "ready"))
     io = Script(answers=["y",            # github: try another token after the bad one
@@ -130,3 +131,22 @@ def test_upgrade_takes_the_new_version_and_keeps_gpuq_toml(clone, tmp_path, caps
     assert "gpuq: upgrade to" in git("log", "-1", "--format=%s", cwd=work)
     cli.main(["upgrade", "--upstream", str(upstream)])
     assert "already up to date" in capsys.readouterr().out
+
+
+def test_the_credentials_dataset_must_exist_and_not_be_public(monkeypatch):
+    class R:
+        def __init__(self, rc, out):
+            self.returncode, self.stdout = rc, out
+    answers = {"status": R(0, "ready"), "http": 403}
+    monkeypatch.setattr(setup_wizard.subprocess, "run", lambda *a, **k: answers["status"])
+    monkeypatch.setattr(setup_wizard, "http_status", lambda url: answers["http"])
+    assert setup_wizard.check_kaggle_dataset("me", "gpuq-credentials", "KGAT_x") == (True, "me/gpuq-credentials is private")
+    answers["http"] = 200
+    ok, detail = setup_wizard.check_kaggle_dataset("me", "gpuq-credentials", "KGAT_x")
+    assert not ok and "PUBLIC" in detail
+    answers["http"] = 0
+    assert setup_wizard.check_kaggle_dataset("me", "gpuq-credentials", "KGAT_x")[0] is False
+    answers["status"] = R(1, "404 not found")
+    ok, detail = setup_wizard.check_kaggle_dataset("me", "gpuq-credentials", "KGAT_x")
+    assert not ok and "does not exist yet" in detail
+    assert setup_wizard.check_kaggle_dataset("", "gpuq-credentials", "KGAT_x")[0] is False
