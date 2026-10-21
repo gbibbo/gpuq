@@ -76,6 +76,9 @@ torch.save(model.state_dict(), local)
 remote.put(local, f"models/{run}/final.pt")
 ```
 
+[examples/pytorch/train.py](../examples/pytorch/train.py) is a complete, runnable version of this
+pattern on a GPU.
+
 Name checkpoints after the run, not the job. Job ids are never reused, so a new job (`train-2
 --cmd "python train.py --run base"`) can continue a run that an earlier job (`train-1`) started.
 

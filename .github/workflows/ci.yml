@@ -29,5 +29,5 @@ jobs:
       - run: pip install pytest
       - run: git config --global user.name ci && git config --global user.email ci@example.com
       - run: python -m pytest -q
-      - name: Shell scripts parse
-        run: bash -n install.sh && sh -n docker/gpuq-cli
+      - name: Shell scripts parse and examples compile
+        run: bash -n install.sh && sh -n docker/gpuq-cli && python -m py_compile examples/*.py examples/pytorch/*.py
