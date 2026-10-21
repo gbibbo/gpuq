@@ -27,6 +27,20 @@ def token():
 
 if not REPO:
     sys.exit("GPUQ_OPS_REPO is not set. Start the container with install.sh")
+# gpuq pins the Colab CLI version it was tested with, so the CLI's daily "new version" banner is noise
+COLAB_SETTINGS = "/root/.config/colab-cli/settings.json"
+try:
+    with open(COLAB_SETTINGS, encoding="utf-8") as fh:
+        colab_settings = json.load(fh)
+except (OSError, ValueError):
+    colab_settings = {}
+if colab_settings.get("enable_update_check") is not False:
+    try:
+        os.makedirs(os.path.dirname(COLAB_SETTINGS), exist_ok=True)
+        with open(COLAB_SETTINGS, "w", encoding="utf-8") as fh:
+            json.dump({**colab_settings, "enable_update_check": False}, fh)
+    except OSError:
+        pass
 while not token():
     print(f"no GitHub token in {CREDS} yet. Run: docker exec -it gpuq gpuq setup", flush=True)
     time.sleep(60)

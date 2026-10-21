@@ -65,9 +65,10 @@ elif args[:2] == ["kernels", "output"]:
     text = (state / "log.txt").read_text(encoding="utf-8") if (state / "log.txt").exists() else ""
     (dest / "gpuq-launcher.log").write_text(json.dumps([{"stream_name": "stdout", "time": 1.0, "data": text}]))
     print("Output file downloaded")
-elif args[:2] == ["kernels", "logs"]:
+elif args[:2] == ["kernels", "logs"]:  # the real CLI prints the session log as a JSON list
     save()
-    print((state / "log.txt").read_text(encoding="utf-8") if (state / "log.txt").exists() else "")
+    text = (state / "log.txt").read_text(encoding="utf-8") if (state / "log.txt").exists() else ""
+    print(json.dumps([{"stream_name": "stdout", "time": 1.0, "data": text}]) if text else "")
 else:
     save()
     print("unknown")

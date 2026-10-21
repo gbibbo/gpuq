@@ -51,7 +51,9 @@ and the job is relaunched on a new VM. Your job has to resume from its checkpoin
 1. gpuq builds a private notebook (`<you>/gpuq-launcher`) whose only cell is the same start script, with
    GPU and internet on and the private dataset `<you>/gpuq-credentials` attached.
 2. `kaggle kernels push` starts it. Kaggle runs it to the end by itself, up to 12 hours.
-3. The dispatcher follows `kaggle kernels status` and, at the end, downloads the log.
+3. The dispatcher follows `kaggle kernels status` and reads the log with `kaggle kernels logs`, every 10
+   minutes while it runs and once more at the end. The start script works in `/tmp`, because Kaggle keeps
+   whatever is left in `/kaggle/working` as the notebook's output.
 
 Kaggle does not hand notebook Secrets to runs started with `kaggle kernels push` (Kaggle CLI issue 582,
 still open). The private dataset is the way around it. Keep it private.
@@ -118,9 +120,6 @@ cancellation and the notification links to the page where you click **Cancel run
 **Numbers differ slightly between platforms.** The same model in FP16 gives results that differ in the
 third or fourth decimal between a Colab T4 and Kaggle's two T4s with different CUDA versions. That is why
 a job that started on one platform stays there.
-
-**Logs on Kaggle arrive at the end.** While a Kaggle job runs, gpuq asks for its log every 10 minutes,
-but Kaggle does not always return it before the run ends.
 
 ## Versions
 

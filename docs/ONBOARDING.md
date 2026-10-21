@@ -277,7 +277,7 @@ Job ids are never reused. To run the same thing again, give it a new id (`train-
 | GitHub token expired | make a new one (section 3), then `./install.sh setup --only github kaggle_dataset` on the always-on computer |
 | Colab asks to sign in again | `docker exec -it gpuq colab sessions` on the always-on computer |
 | rclone config changed | `./install.sh setup --only storage kaggle_dataset` |
-| Update gpuq | merge the new version into your copy, push, then `./install.sh update` |
+| Update gpuq | `gpuq upgrade` on your laptop (it keeps your `gpuq.toml`), look at the commit, `git push`, then `./install.sh update` on the always-on computer |
 | Check everything | `docker exec gpuq gpuq doctor` |
 | Dispatcher log | `docker logs --tail 100 gpuq` |
 | Stop it | `docker stop gpuq` (and `docker start gpuq` to resume) |

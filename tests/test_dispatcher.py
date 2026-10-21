@@ -66,7 +66,9 @@ def test_jobs_run_on_both_lanes_with_dependencies(world, monkeypatch):
         assert "supersecretvalue42" not in text and "secret is ***" in text          # secrets never published
         assert json.loads((world["remote"] / "out" / f"{j}.json").read_text()) == {"job": j}
     assert "supersecretvalue42" not in json.dumps(status) and "ghp_faketoken" not in json.dumps(status)
-    kmeta = json.loads((world["tmp"] / "fake" / "kaggle" / "book.json").read_text())["last_meta"]
+    kbook = json.loads((world["tmp"] / "fake" / "kaggle" / "book.json").read_text())
+    assert "kernels logs" in kbook["calls"] and "kernels output" not in kbook["calls"]   # no slow file download
+    kmeta = kbook["last_meta"]
     assert kmeta["enable_gpu"] is False and kmeta["is_private"] is True and kmeta["dataset_sources"] == ["me/gpuq-credentials"]
     assert sum("finished on" in m for m in world["sent"]) == 3
     assert not (world["tmp"] / "vm" / vm.CREDENTIALS_FILE).exists()            # deleted on the VM after reading

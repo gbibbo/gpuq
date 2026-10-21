@@ -20,6 +20,7 @@ DEFAULTS = {
         "branch": "main",     # the dispatcher runs this branch of the ops repo and restarts when it moves
         "code_repo": "",      # repo that jobs check out unless they name another (default: the ops repo)
         "ref": "main",        # branch, tag or commit of the code repo (default for jobs)
+        "upstream": "https://github.com/gbibbo/gpuq.git",  # where `gpuq upgrade` takes new versions from
     },
     "colab": {
         "enabled": True,

@@ -8,6 +8,7 @@ On your laptop, from your copy of the repo (it uses your usual git credentials):
     gpuq logs train-1
     gpuq cancel train-1
     gpuq list
+    gpuq upgrade        takes the latest gpuq into your copy, keeping gpuq.toml
 
 On the dispatcher machine, inside the container:
 
@@ -193,6 +194,37 @@ def cmd_logs(args, root, s):
     sys.stdout.write(data.decode("utf-8", errors="replace"))
 
 
+KEEP = {settings_mod.FILE}  # your files, never overwritten by an upgrade
+
+
+def _git(root: Path, *args, check: bool = True) -> str:
+    r = subprocess.run(["git", "-C", str(root), *args], capture_output=True, text=True, encoding="utf-8",
+                       errors="replace")
+    if check and r.returncode:
+        sys.exit(f"git {args[0]} failed: {r.stderr.strip()[-500:]}")
+    return r.stdout
+
+
+def cmd_upgrade(args, root, s):
+    """A copy made with "Use this template" has its own history, so it cannot simply merge the new
+    version. This takes the files of the new version as they are, except gpuq.toml, and commits them."""
+    if _git(root, "status", "--porcelain", "--untracked-files=no").strip():
+        sys.exit("commit or stash your changes first, then run gpuq upgrade again")
+    upstream = args.upstream or s["github"]["upstream"]
+    _git(root, "fetch", "-q", upstream, args.ref)
+    sha = _git(root, "rev-parse", "FETCH_HEAD").strip()
+    paths = [p for p in _git(root, "ls-tree", "-r", "--name-only", "FETCH_HEAD").splitlines() if p not in KEEP]
+    for i in range(0, len(paths), 100):
+        _git(root, "checkout", "FETCH_HEAD", "--", *paths[i:i + 100])
+    if not _git(root, "status", "--porcelain", "--untracked-files=no").strip():
+        print(f"already up to date with {upstream} {args.ref} ({sha[:12]})")
+        return
+    print(_git(root, "diff", "--cached", "--stat").rstrip())
+    _git(root, "commit", "-q", "-m", f"gpuq: upgrade to {sha[:12]} from {upstream} {args.ref}")
+    print(f"\ncommitted the upgrade to {sha[:12]}. Look at it with git show, then:\n"
+          "  git push\n  ./install.sh update        (on the always-on computer)")
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="gpuq", description="Personal job queue for free Colab and Kaggle machines")
     sub = ap.add_subparsers(dest="command", required=True)
@@ -217,6 +249,9 @@ def main(argv=None) -> int:
     lg = sub.add_parser("logs", help="log of a job's latest (or given) attempt")
     lg.add_argument("id")
     lg.add_argument("--attempt", type=int)
+    up = sub.add_parser("upgrade", help="bring the latest gpuq into your copy (keeps gpuq.toml)")
+    up.add_argument("--upstream", help="repo to take the new version from (default from gpuq.toml)")
+    up.add_argument("--ref", default="main")
     sp = sub.add_parser("setup", help="dispatcher machine: set up accounts and keys step by step")
     sp.add_argument("--only", nargs="*", help="run only these steps")
     sub.add_parser("doctor", help="dispatcher machine: check every piece")
@@ -236,8 +271,8 @@ def main(argv=None) -> int:
     problems = settings_mod.check(s, need_kaggle_user=False)
     if problems:
         sys.exit("gpuq.toml: " + "; ".join(problems))
-    {"add": cmd_add, "cancel": cmd_cancel, "list": cmd_list, "status": cmd_status, "logs": cmd_logs}[args.command](
-        args, root, s)
+    {"add": cmd_add, "cancel": cmd_cancel, "list": cmd_list, "status": cmd_status, "logs": cmd_logs,
+     "upgrade": cmd_upgrade}[args.command](args, root, s)
     return 0
 
 
