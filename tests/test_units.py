@@ -157,6 +157,17 @@ def test_branch_creates_reads_and_survives_a_concurrent_push(tmp_path):
     assert git("--git-dir", str(bare), "log", "-1", "--format=%an", "runs").strip() == "gpuq-bot"
 
 
+def test_gpuq_branches_carry_no_workflows(tmp_path):
+    # The dispatcher pushes to jobs and runs many times a day. A workflow file on those branches
+    # would start a GitHub Actions run at each push and spend the free allowance of the account.
+    bare = bare_repo(tmp_path / "ops.git", {"README.md": "ops\n", ".github/workflows/ci.yml": "on: push\n"})
+    for name in ("jobs", "runs"):
+        b = gitops.Branch(str(bare), name, tmp_path / name, None, backoff_s=0)
+        assert b.publish({"one/x.txt": "1"}, message="first")
+        files = git("--git-dir", str(bare), "ls-tree", "-r", "--name-only", name).split()
+        assert sorted(files) == ["README.md", "one/x.txt"]
+
+
 def test_token_travels_in_a_header_only():
     env = gitops.auth_env("ghp_secret", "https://github.com/me/gpuq.git")
     assert env["GIT_CONFIG_KEY_0"] == "http.https://github.com/.extraheader"

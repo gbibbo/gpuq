@@ -105,6 +105,29 @@ Using them does not change the rules. Read the
 - **Do not work around limits.** If a platform stops your VMs, find out why rather than finding a way
   past it.
 
+## GitHub Actions
+
+gpuq does not use GitHub Actions to run or to follow jobs. The dispatcher reads and writes the branches
+`jobs` and `runs` from the always-on computer. Those branches carry no workflow files, so its pushes
+start nothing, and a test keeps it that way.
+
+Your copy has one workflow, the tests in `.github/workflows/ci.yml`. They run on pull requests and on
+pushes to `main`, which happen when you change `gpuq.toml` or upgrade gpuq, and take under a minute per
+Python version. That matters in a private copy, because a free GitHub account has about 2000 Actions
+minutes and 0.5 GB of artifact storage a month, shared by all its private repositories (November 2026).
+
+- **Never commit a workflow to `jobs` or `runs`,** and do not add one that reacts to every push. The
+  dispatcher pushes there many times a day.
+- **Do not use Actions artifacts for results or checkpoints.** Artifact storage is billed for every hour
+  an artifact is kept, 90 days unless the workflow says otherwise, and once the allowance is spent
+  GitHub rejects every upload of the account until the next month. In November 2026 a workflow that
+  kept 27 MB per run used up a month's storage in 11 days. Results go to your storage remote, and
+  small ones to the `runs` branch (see WRITING_JOBS.md).
+- **A workflow you add** uploads artifacts only with `retention-days: 1`, runs once per change and has
+  a `concurrency` group with `cancel-in-progress` and a `timeout-minutes`.
+- If you do not want the tests in your copy, disable Actions for it under **Settings**, **Actions**,
+  **General**. gpuq keeps working.
+
 ## Known issues
 
 **Colab CPU-only VMs are short-lived.** Free Colab VMs without GPU, driven by the CLI, have died 12 to
