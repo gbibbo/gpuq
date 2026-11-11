@@ -1,12 +1,22 @@
-# Tests on every push and pull request. No network, no Colab, no Kaggle: fake CLIs and local git repos.
+# Tests on pull requests and on main. No network, no Colab, no Kaggle: fake CLIs and local git repos.
+#
+# Cost. Under a minute per Python version, billed as one minute each, and no artifacts. In a private
+# copy that comes out of the free GitHub Actions allowance of the account, about 2000 minutes a month
+# shared by all its private repositories. So a branch with an open pull request runs once and not
+# twice, and a new push cancels the run in flight (docs/HOW_IT_WORKS.md, GitHub Actions).
 name: tests
 
 on:
   push:
+    branches: [main]
   pull_request:
 
 permissions:
   contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:

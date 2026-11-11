@@ -110,7 +110,9 @@ It publishes the end of the log every 10 minutes and at the end of each attempt.
 `***`, but do not print them anyway.
 
 Small results (a JSON with metrics, a CSV) can also go to the `runs` branch of your gpuq repository, next
-to the logs. Use the remote for anything large.
+to the logs. Use the remote for anything large. Do not use GitHub Actions artifacts for either, because
+their storage allowance is small and shared by all your private repositories (HOW_IT_WORKS.md, GitHub
+Actions).
 
 ## Dependencies between jobs
 
