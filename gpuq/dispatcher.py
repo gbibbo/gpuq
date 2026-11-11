@@ -38,6 +38,8 @@ TIMING = {
     "kaggle_max_run_s": 13 * 3600,  # Kaggle stops sessions at 12 h
     "colab_no_gpu_cooldown_s": 1800, "kaggle_no_quota_cooldown_s": 6 * 3600, "auth_cooldown_s": 3600,
     "no_gpu_notify_after_s": 3 * 3600,
+    "queue_restart_after_s": 900,   # this long without the queue, and every such period after, restart
+    "queue_notify_after_s": 3600,   # this long without the queue, tell the phone once
 }
 AUTH_MARKERS = ("invalid_grant", "unauthorized", "401", "reauth", "refresh token", "credentials",
                 "authorization code", "to authorize colab-cli")
@@ -212,9 +214,9 @@ class Dispatcher:
         except Exception:
             return ""
 
-    def notify(self, title: str, msg: str):
+    def notify(self, title: str, msg: str) -> bool:
         log(f"notify: {title}: {msg}")
-        notify.send(self.topic, title, msg)
+        return bool(notify.send(self.topic, title, msg))
 
     def read_queue(self) -> list:
         raw = self.queue_branch.read("queue.json")
@@ -497,13 +499,57 @@ class Dispatcher:
                 self.publish(f"blocked {j['id']}")
                 self.notify("gpuq", f"{j['id']} is blocked because one of its dependencies failed or was cancelled")
 
+    def queue_unreadable(self, exc) -> bool:
+        """The queue could not be read. Returns False when the dispatcher should exit to be restarted.
+
+        A container keeps the DNS servers the host had when it started. If the host's resolver changes
+        afterwards (a VPN that logs out, another network), the container cannot resolve github.com
+        until it starts again, and nothing inside can tell that apart from an outage. In November 2026
+        a dispatcher spent 20 hours like that. So after queue_restart_after_s without the queue, and
+        once per such period after that, it exits with the Colab lane empty and Docker starts it
+        again with the host's current settings. After queue_notify_after_s it tells the phone, which
+        covers the causes a restart does not fix, such as an expired GitHub token."""
+        now = time.time()
+        with self.lock:
+            down = self.state.setdefault("queue_down", {"since": now, "notified": False, "restarts": 0})
+            elapsed = now - down["since"]
+            restart = (elapsed >= self.t["queue_restart_after_s"] * (down["restarts"] + 1)
+                       and not self.state["lanes"].get("colab"))
+            if restart:
+                down["restarts"] += 1
+            tell = elapsed >= self.t["queue_notify_after_s"] and not down["notified"]
+        if tell:
+            error = secrets.redact(str(exc), self.frags)[:200]
+            sent = self.notify("gpuq cannot read the queue", f"No access to the queue for {int(elapsed // 60)} min. "
+                               f"No job starts until it comes back. Last error: {error}")
+            with self.lock:
+                down["notified"] = sent
+        with self.lock:
+            save_json(self.state_path, self.state)
+        if restart:
+            log(f"{int(elapsed // 60)} min without the queue, restarting to take the host's network settings")
+        return not restart
+
+    def queue_readable(self):
+        with self.lock:
+            down = self.state.pop("queue_down", None)
+            if down:
+                save_json(self.state_path, self.state)
+        if down:
+            minutes = int((time.time() - down["since"]) // 60)
+            log(f"the queue is readable again after {minutes} min")
+            if down.get("notified"):
+                self.notify("gpuq", f"The queue is readable again after {minutes} min")
+
     def step(self) -> bool:
-        """One tick. Returns False when the dispatcher should exit to restart on new code."""
+        """One tick. Returns False when the dispatcher should exit to be restarted, on new code or
+        after a long time without the queue."""
         try:
             queue = self.read_queue()
         except Exception as exc:
             log(f"cannot read the queue: {exc!r}")
-            return True
+            return self.queue_unreadable(exc)
+        self.queue_readable()
         by_id = {j["id"]: j for j in queue}
         self.housekeeping(queue)
         self.poll_colab(by_id)
