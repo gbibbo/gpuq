@@ -137,6 +137,14 @@ when it was assigned and died about 22.5 minutes after it booted. A 3 GB upload 
 booted CPU VM did not kill it. VMs with a T4 GPU have run for more than 4 hours. Colab does not publish
 its limits. For this reason CPU-only jobs go to Kaggle by default (`colab.cpu_jobs = false`).
 
+**A container keeps the DNS servers the host had when it started.** If the host's resolver changes
+later, for example a VPN such as Tailscale that logs out or a move to another network, the dispatcher
+cannot resolve `github.com` any more and no job starts (`Could not resolve host` in `docker logs gpuq`).
+After 15 minutes without the queue the dispatcher exits, with the Colab lane empty, and Docker starts
+it again with the host's current settings. It repeats that every 15 minutes while the queue stays out
+of reach, and after an hour it sends a notification, which also covers an expired GitHub token.
+`docker restart gpuq` does the same by hand.
+
 **No CLI cancel on Kaggle.** Kaggle CLI 2.2.4 cannot stop a running notebook. `gpuq cancel` records the
 cancellation and the notification links to the page where you click **Cancel run**.
 

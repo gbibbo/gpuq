@@ -112,6 +112,34 @@ def test_kaggle_without_quota_rests_and_notifies(world, monkeypatch):
     assert any(m.startswith("Kaggle quota") for m in world["sent"])
 
 
+def test_an_unreadable_queue_restarts_the_dispatcher_and_notifies(world, monkeypatch):
+    d = make(world, monkeypatch, queue_restart_after_s=50, queue_notify_after_s=100)
+    assert d.step() and "queue_down" not in d.state
+    read = d.read_queue
+
+    def broken():
+        raise RuntimeError("Could not resolve host: github.com")
+
+    d.read_queue = broken
+    assert d.step() and d.state["queue_down"]["restarts"] == 0      # the first failure starts the clock
+    d.state["queue_down"]["since"] -= 60
+    assert not d.step()                                              # 60 s without the queue, restart
+    assert d.step() and not world["sent"]                            # once per period, and no message yet
+    d.state["queue_down"]["since"] -= 60
+    d.state["lanes"]["colab"] = {"job": "x"}
+    assert d.step()                                                  # never under a Colab attempt
+    assert sum(m.startswith("gpuq cannot read the queue") for m in world["sent"]) == 1
+    d.state["lanes"]["colab"] = None
+    assert not d.step()                                              # 120 s, second period
+    d2 = make(world, monkeypatch, queue_restart_after_s=50, queue_notify_after_s=100)
+    assert d2.state["queue_down"]["restarts"] == 2 and d2.state["queue_down"]["notified"]   # survives the restart
+    d2.read_queue = broken
+    assert d2.step() and len(world["sent"]) == 1                     # one message per outage
+    d2.read_queue = read
+    assert d2.step() and "queue_down" not in d2.state
+    assert world["sent"][-1].startswith("gpuq: The queue is readable again")
+
+
 def test_cancel_a_running_colab_job_and_a_pending_one(world, monkeypatch):
     set_queue(world, {"id": "long", "cmd": "python job.py --sleep 20", "platform": "colab"},
               {"id": "later", "cmd": "python job.py", "platform": "colab"})
