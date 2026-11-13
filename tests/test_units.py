@@ -54,6 +54,25 @@ def test_lanes_pinning_dependencies_and_cpu_routing(s):
     assert not jobs.allowed(q[1], "kaggle", s3) and not jobs.allowed(q[1], "colab", s3)
 
 
+def test_auto_gpu_jobs_wait_for_colab_and_spare_the_kaggle_quota(s):
+    q = jobs.normalize({"jobs": [{"id": "gpu", "cmd": "x"}, {"id": "cpu", "cmd": "x", "gpu": "CPU"},
+                                 {"id": "pinned", "cmd": "x", "platform": "kaggle"}]}, s)
+    st = {"jobs": {}, "lanes": {"colab": {"job": "other"}, "kaggle": None}}
+    # Colab busy but up: the auto GPU job waits for it; CPU and pinned jobs may use Kaggle
+    assert jobs.pick(q, st, "kaggle", s)["id"] == "cpu"
+    assert [j["id"] for j in q if jobs.allowed(j, "kaggle", s)] == ["cpu", "pinned"]
+    # Colab resting after giving no GPU, or disabled: the auto GPU job takes Kaggle
+    assert jobs.pick(q, st, "kaggle", s, colab_up=False)["id"] == "gpu"
+    # an auto job that already ran on Kaggle stays there even while Colab is up
+    st["jobs"]["gpu"] = {"status": "retrying", "platform": "kaggle"}
+    assert jobs.pick(q, st, "kaggle", s)["id"] == "gpu"
+    # the old behaviour, Kaggle whenever Colab is busy
+    old = {**s, "kaggle": {**s["kaggle"], "auto_gpu": "colab_busy"}}
+    assert jobs.allowed(q[0], "kaggle", old)
+    bad = {**s, "kaggle": {**s["kaggle"], "auto_gpu": "always"}}
+    assert any("kaggle.auto_gpu" in p for p in settings_mod.check(bad))
+
+
 def test_classify_by_the_last_marker():
     assert jobs.classify("...\n[gpuq] job finished\n") == "done"
     assert jobs.classify("[gpuq] job finished\n...\n[gpuq] job exited with code 3\n") == "job_error"

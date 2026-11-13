@@ -127,8 +127,12 @@ gpuq add eval-1 --cmd "python eval.py --run train-1" --depends-on train-1 --gpu 
 
 ## Where a job runs
 
-- `--platform auto` (default) takes Colab when it is free, because Colab does not spend Kaggle's weekly
-  GPU quota, and Kaggle when Colab is busy or gives no GPU.
+- `--platform auto` (default) takes Colab, because Colab does not spend Kaggle's weekly GPU quota. A GPU
+  job waits while Colab is busy and takes Kaggle only when Colab cannot run it: no GPU, no login, or
+  Colab disabled. Set `kaggle.auto_gpu = "colab_busy"` in gpuq.toml to also use Kaggle whenever Colab is
+  busy, which finishes a long queue sooner and spends the quota faster.
+- `--platform kaggle` pins a job to Kaggle: for work that needs more memory than one T4 (Kaggle gives
+  two) or that cannot save its progress every few minutes (see HOW_IT_WORKS.md, Known issues).
 - `--gpu CPU` jobs go to Kaggle, unless you set `colab.cpu_jobs = true` (see HOW_IT_WORKS.md for why).
 - Once a job has run on a platform, its later attempts stay there. A resumed run keeps the same kind of
   GPU, which avoids small numerical differences between, say, a Colab T4 and Kaggle's two T4s.

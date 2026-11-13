@@ -102,6 +102,15 @@ def test_no_gpu_on_colab_sends_an_auto_job_to_kaggle_and_cpu_jobs_skip_colab(wor
     assert d.state["unavailable"]["colab"] > time.time()     # the Colab lane rests
 
 
+def test_auto_gpu_jobs_wait_for_a_busy_colab_instead_of_spending_kaggle(world, monkeypatch):
+    set_queue(world, {"id": "a", "cmd": "python job.py"}, {"id": "b", "cmd": "python job.py"},
+              {"id": "c", "cmd": "python job.py", "gpu": "CPU"})
+    d = make(world, monkeypatch)
+    run_until(d, lambda r: statuses(r, "a", "b", "c") == ("done", "done", "done"))
+    assert d.state["jobs"]["a"]["platform"] == "colab" and d.state["jobs"]["b"]["platform"] == "colab"
+    assert d.state["jobs"]["c"]["platform"] == "kaggle"      # CPU spends no GPU quota
+
+
 def test_kaggle_without_quota_rests_and_notifies(world, monkeypatch):
     monkeypatch.setenv("FAKE_KAGGLE_NO_QUOTA", "1")
     set_queue(world, {"id": "q", "cmd": "python job.py", "platform": "kaggle"})

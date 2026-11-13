@@ -8,8 +8,9 @@ A queue entry (branch jobs, file queue.json, edited with `gpuq add` and `gpuq ca
 
 Only id and cmd are required. setup null means `pip install -r requirements.txt` when the file exists.
 gpu "CPU" asks for a machine without accelerator. platform is colab, kaggle or auto. An auto job
-takes Colab when it is free, because Colab does not spend Kaggle's weekly quota, and Kaggle when
-Colab is busy or gives no GPU. CPU jobs go to Kaggle unless colab.cpu_jobs is true. Once a job has
+takes Colab, because Colab does not spend Kaggle's weekly GPU quota. An auto GPU job takes Kaggle only
+when Colab cannot run it (disabled, no GPU, no login) and waits while Colab is busy, unless
+kaggle.auto_gpu is "colab_busy". CPU jobs go to Kaggle unless colab.cpu_jobs is true. Once a job has
 run on a platform it stays there, so a resumed job keeps the same kind of hardware.
 """
 from __future__ import annotations
@@ -50,14 +51,17 @@ def is_cpu(job: dict) -> bool:
     return job["gpu"] == "CPU"
 
 
-def allowed(job: dict, lane: str, settings: dict) -> bool:
-    """Whether this lane may run the job, ignoring whether the lane is busy."""
+def allowed(job: dict, lane: str, settings: dict, colab_up: bool = True) -> bool:
+    """Whether this lane may run the job, ignoring whether the lane is busy. colab_up says whether the Colab
+    lane can take jobs at all (enabled, and not resting after giving no GPU or losing its login)."""
     if not settings[lane]["enabled"]:
         return False
     if job["platform"] in LANES:
         return job["platform"] == lane
     if lane == "colab" and is_cpu(job) and not settings["colab"]["cpu_jobs"]:
         return False
+    if lane == "kaggle" and not is_cpu(job) and colab_up and settings["kaggle"]["auto_gpu"] == "colab_unavailable":
+        return False  # Kaggle's GPU hours are a weekly quota: the job waits for Colab
     return True
 
 
@@ -73,8 +77,8 @@ def deps_state(job: dict, state: dict) -> str:
     return "ok"
 
 
-def pick(queue: list, state: dict, lane: str, settings: dict):
-    """First runnable job for a free lane, in queue order, or None."""
+def pick(queue: list, state: dict, lane: str, settings: dict, colab_up: bool = True):
+    """First runnable job for a free lane, in queue order, or None. colab_up as in allowed()."""
     recs = state.get("jobs", {})
     busy = {v.get("job") for v in state.get("lanes", {}).values() if v}
     for job in queue:
@@ -86,7 +90,7 @@ def pick(queue: list, state: dict, lane: str, settings: dict):
         pinned = rec.get("platform")
         if pinned and pinned != lane:
             continue
-        if allowed(job, lane, settings):
+        if allowed(job, lane, settings, colab_up=colab_up and pinned != lane):  # a job resumed on Kaggle stays
             return job
     return None
 

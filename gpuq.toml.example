@@ -13,6 +13,8 @@ enabled = true
 [kaggle]
 enabled = true
 username = "your-kaggle-username"
+# auto_gpu = "colab_busy"                    # auto GPU jobs also take Kaggle while Colab is busy (default:
+                                             # only when Colab cannot run them, to keep the weekly quota)
 
 [storage]
 remote = "gdrive:gpuq"                       # rclone remote:folder for checkpoints and results, "" for none

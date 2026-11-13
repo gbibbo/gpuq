@@ -560,10 +560,11 @@ class Dispatcher:
         if self.code_moved():  # after the polls, so a finished attempt is recorded first
             return False
         lane_settings = {**self.s, "kaggle": {**self.s["kaggle"], "enabled": self.kaggle_ready()}}
+        colab_up = self.available("colab")  # busy is still up: an auto GPU job then waits for Colab
         for lane in jobs.LANES:
             if self.state["lanes"].get(lane) or not self.available(lane):
                 continue
-            job = jobs.pick(queue, self.state, lane, lane_settings)
+            job = jobs.pick(queue, self.state, lane, lane_settings, colab_up=colab_up)
             if job is not None:
                 self.start(lane, job)
         if not any(self.state["lanes"].values()) and self.state.get("note") != "idle":

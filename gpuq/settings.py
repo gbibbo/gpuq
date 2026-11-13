@@ -32,6 +32,10 @@ DEFAULTS = {
         "username": "",
         "kernel": "gpuq-launcher",     # one private notebook, reused for every Kaggle job
         "dataset": "gpuq-credentials",  # private dataset that carries the credentials to Kaggle runs
+        # When an auto GPU job may take Kaggle, whose GPU hours are a weekly quota while Colab's are not:
+        # "colab_unavailable" only when Colab cannot run it (disabled, no GPU, no login), so the job waits
+        # while Colab is busy; "colab_busy" also whenever Colab is running another job.
+        "auto_gpu": "colab_unavailable",
     },
     "storage": {
         "remote": "",         # rclone remote:path that jobs receive as GPUQ_REMOTE, e.g. gdrive:gpuq
@@ -51,6 +55,7 @@ DEFAULTS = {
 }
 
 REPO_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
+AUTO_GPU = ("colab_unavailable", "colab_busy")
 
 
 class SettingsError(ValueError):
@@ -88,5 +93,7 @@ def check(s: dict, need_kaggle_user: bool = True) -> list:
         problems.append("kaggle.enabled is true but kaggle.username is empty in gpuq.toml")
     if not (s["colab"]["enabled"] or s["kaggle"]["enabled"]):
         problems.append("both colab.enabled and kaggle.enabled are false")
+    if s["kaggle"]["auto_gpu"] not in AUTO_GPU:
+        problems.append(f"kaggle.auto_gpu is {s['kaggle']['auto_gpu']!r}; it must be one of {', '.join(AUTO_GPU)}")
     return problems
 

@@ -19,7 +19,9 @@ flowchart LR
   with your usual git credentials. You can also edit it on github.com, from a phone.
 - **The dispatcher** runs on the always-on computer, in a container that holds the Colab CLI, the Kaggle
   CLI, rclone and git. It opens no ports. It talks to GitHub, Colab, Kaggle and ntfy, always outwards.
-- **Two lanes**, one job at a time on Colab and one on Kaggle, in parallel.
+- **Two lanes**, one job at a time on Colab and one on Kaggle, in parallel. Kaggle's GPU hours are a
+  weekly quota and Colab's are not, so an `auto` GPU job waits for Colab while it is busy and takes Kaggle
+  only when Colab cannot run it (`kaggle.auto_gpu` in gpuq.toml changes that).
 - **Status and logs** go to branch `runs`. `_gpuq/status.json` has the state of every job and lane, and
   `<job>/attempt-NN.log` the end of each attempt's output, with secrets replaced by `***`.
 - **Code updates.** The dispatcher runs the default branch of your gpuq copy. When it moves (a new
@@ -137,13 +139,14 @@ minutes and 0.5 GB of artifact storage a month, shared by all its private reposi
 **Colab sometimes reclaims every VM after about 13 minutes.** In October 2026, free Colab VMs without
 GPU, driven by the CLI, died 12 to 13.5 minutes after they were assigned, with memory, disk and CPU normal
 until the end, while VMs with a T4 GPU ran for more than 4 hours. From 2 November 2026 at 17 UTC to at
-least 10 November, VMs with a T4 died the same way: 56 attempts in a row across two queues, none longer
-than 22 minutes, with the same CLI and the same design that had run for hours. On 13 November a T4 VM
-with gpuq's pattern (detached job, one short poll a minute) ran 35 minutes of GPU work again. Colab does
-not publish its limits or say why. Jobs that save every few minutes lose little either way. If attempts
-keep ending with `appears to be lost (404/401)` 12 to 15 minutes after they start, send the job to Kaggle
-(`--platform kaggle`) rather than spending its interruptions. CPU-only jobs go to Kaggle by default
-(`colab.cpu_jobs = false`).
+least 13 November, VMs with a T4 running real jobs died the same way: 58 attempts in a row across two
+queues, none longer than 22 minutes, with the same CLI and the same design that had run for hours. On 13
+November a test job that only multiplied matrices on the GPU, with gpuq's pattern (detached job, one short
+poll a minute), ran 35 minutes, while a real job on the next VM was cut at 12. Colab does not publish its
+limits or say why. Such a cut costs a job that saves every few minutes only its start, about a minute or
+two, so write jobs that way and split long work into jobs of a few attempts each (gpuq relaunches up to
+10 interruptions per job). Jobs that cannot save every few minutes go to Kaggle (`--platform kaggle`).
+CPU-only jobs go to Kaggle by default (`colab.cpu_jobs = false`).
 
 **A container keeps the DNS servers the host had when it started.** If the host's resolver changes
 later, for example a VPN such as Tailscale that logs out or a move to another network, the dispatcher
