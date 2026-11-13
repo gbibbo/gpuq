@@ -37,13 +37,17 @@ flowchart LR
    free disk, GPU use and, at the end, the exit code.
 5. `colab stop` releases the VM.
 
-Why detached. A Colab VM whose only traffic is one long `colab exec` is reclaimed after about 12 minutes,
-and the CLI then waits forever. Colab keeps a VM alive through kernel activity and live connections (the
-CLI's own keep-alive was retired in September 2026). One short exec a minute gives it both, and each poll
-is a fresh connection, so a dropped connection costs one poll and not the job.
+Why detached. When the connection of a long `colab exec` drops, or its VM dies, the CLI waits forever,
+and a job inside that exec has no way to report. A detached job keeps running whatever happens to the
+connection, and each poll is a fresh connection, so a dropped connection costs one poll and not the job.
+Colab keeps a VM alive through kernel activity and live connections (the CLI's own keep-alive was retired
+in September 2026). One short exec a minute was enough for T4 VMs to run for hours in October 2026, and
+for 35 minutes of GPU work in a test on 13 November (see Known issues for the days it was not).
 
 When six polls in a row fail, or the CLI says the session was lost, the attempt counts as interrupted
-and the job is relaunched on a new VM. Your job has to resume from its checkpoints
+and the job is relaunched on a new VM. Only the CLI's own line (`[colab] Session '...' appears to be lost`
+or `... not found`) means the VM is gone. A poll that fails on the network prints a traceback, which can
+contain the words "not found" in library source, and counts as one failed poll. Your job has to resume from its checkpoints
 ([WRITING_JOBS.md](WRITING_JOBS.md)).
 
 ## One attempt on Kaggle
@@ -130,12 +134,16 @@ minutes and 0.5 GB of artifact storage a month, shared by all its private reposi
 
 ## Known issues
 
-**Colab CPU-only VMs are short-lived.** Free Colab VMs without GPU, driven by the CLI, have died 12 to
-13.5 minutes after they were assigned, with memory, disk and CPU normal until the end (measured in
-October 2026). Colab hands out VMs that are already running. One of them had been up for 11.5 minutes
-when it was assigned and died about 22.5 minutes after it booted. A 3 GB upload to Drive on a freshly
-booted CPU VM did not kill it. VMs with a T4 GPU have run for more than 4 hours. Colab does not publish
-its limits. For this reason CPU-only jobs go to Kaggle by default (`colab.cpu_jobs = false`).
+**Colab sometimes reclaims every VM after about 13 minutes.** In October 2026, free Colab VMs without
+GPU, driven by the CLI, died 12 to 13.5 minutes after they were assigned, with memory, disk and CPU normal
+until the end, while VMs with a T4 GPU ran for more than 4 hours. From 2 November 2026 at 17 UTC to at
+least 10 November, VMs with a T4 died the same way: 56 attempts in a row across two queues, none longer
+than 22 minutes, with the same CLI and the same design that had run for hours. On 13 November a T4 VM
+with gpuq's pattern (detached job, one short poll a minute) ran 35 minutes of GPU work again. Colab does
+not publish its limits or say why. Jobs that save every few minutes lose little either way. If attempts
+keep ending with `appears to be lost (404/401)` 12 to 15 minutes after they start, send the job to Kaggle
+(`--platform kaggle`) rather than spending its interruptions. CPU-only jobs go to Kaggle by default
+(`colab.cpu_jobs = false`).
 
 **A container keeps the DNS servers the host had when it started.** If the host's resolver changes
 later, for example a VPN such as Tailscale that logs out or a move to another network, the dispatcher

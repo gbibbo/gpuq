@@ -43,8 +43,11 @@ TIMING = {
 }
 AUTH_MARKERS = ("invalid_grant", "unauthorized", "401", "reauth", "refresh token", "credentials",
                 "authorization code", "to authorize colab-cli")
-# The Colab CLI says so when the backend has already released the VM. No later poll can reach it.
-LOST_MARKERS = ("appears to be lost", "not found")
+# The Colab CLI prints one of these lines when the backend has already released the VM. No later poll can
+# reach it. Only the CLI's own line counts: a failed exec also prints a traceback that shows the source of
+# the libraries, with lines such as `self.log.warning("Kernel not found at: %s", ...)`. In November 2026 a
+# read timeout on a live VM printed that, and matching "not found" anywhere had the dispatcher release it.
+LOST_LINE = re.compile(r"^\[colab\] Session '[^']*' (?:appears to be lost|not found)", re.MULTILINE)
 STATUS_FILE = "_gpuq/status.json"
 
 
@@ -138,7 +141,7 @@ def follow(poll, log_path: Path, sleep=time.sleep, now=time.time, poll_s: float 
             p = vm.parse_poll(out) if rc == 0 else None
             if p is None:
                 failures += 1
-                lost = any(m in out.lower() for m in LOST_MARKERS)
+                lost = bool(LOST_LINE.search(out))
                 fh.write(f"[dispatcher {time.strftime('%H:%M:%S', time.gmtime())}] poll failed "
                          f"{failures}/{max_failures}: {out.strip()[-300:]}\n")
                 fh.flush()

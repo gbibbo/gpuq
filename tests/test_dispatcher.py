@@ -177,6 +177,24 @@ def test_follow_gives_up_on_a_vm_that_stopped_answering(tmp_path):
     answers = iter([(0, good), (1, "[colab] Session 'gpuq' appears to be lost (404/401). Cleaning up.")])
     outcome, tail = D.follow(lambda off: next(answers), tmp_path / "c.log", sleep=lambda s: None, max_failures=6)
     assert outcome == "interrupted" and "poll failed 1/6" in tail      # a released VM is not polled five more times
+    answers = iter([(0, good), (1, "[colab] Session 'gpuq' not found.\n")])
+    outcome, tail = D.follow(lambda off: next(answers), tmp_path / "d.log", sleep=lambda s: None, max_failures=6)
+    assert outcome == "interrupted" and "poll failed 1/6" in tail
+
+
+def test_follow_keeps_a_live_vm_whose_poll_failed_on_the_network(tmp_path):
+    # What the CLI printed on 2026-11-13 for a read timeout on a VM that was alive: the traceback shows library
+    # source, and one of its lines says "Kernel not found at". That is one failed poll, not a released VM.
+    traceback = ("╭───── Traceback (most recent call last) ─────╮\n"
+                 "│   179 │   │   │   │   self.log.warning(\"Kernel not found at: %s\",  │\n"
+                 "╰─────────────────────────────────────────────╯\n"
+                 "ReadTimeout: HTTPSConnectionPool(host='8080-gpu-t4.prod.colab.dev', port=443): Read timed out.\n")
+    good = f"{vm.BEGIN}\n[t] one\n\n{vm.MARK} 8 running 9000 12000 70.5 35,1200\n"
+    end = f"{vm.BEGIN}\n[t] two\n\n{vm.MARK} 16 exit 0 9000 12000 70.5 -\n"
+    answers = iter([(0, good), (1, traceback), (0, end)])
+    outcome, tail = D.follow(lambda off: next(answers), tmp_path / "a.log", sleep=lambda s: None, max_failures=6)
+    assert outcome == "done" and "poll failed 1/6" in tail and "[t] two" in tail
+    assert "the VM does not answer" not in tail
 
 
 def test_watchdog_cuts_a_silent_exec_and_spares_a_chatty_one(tmp_path):
