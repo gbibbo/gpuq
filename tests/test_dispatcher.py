@@ -121,6 +121,37 @@ def test_kaggle_without_quota_rests_and_notifies(world, monkeypatch):
     assert any(m.startswith("Kaggle quota") for m in world["sent"])
 
 
+def test_a_kaggle_run_past_its_timeout_is_told_once_and_keeps_the_lane(world, monkeypatch):
+    # Kaggle cannot be stopped from the CLI. A run stuck while starting, or hung, spends weekly GPU hours
+    # until Kaggle stops it at 12 h, so passing the job's own timeout_h is told with the page to cancel it.
+    set_queue(world, {"id": "k", "cmd": 'python -c "import time; time.sleep(4)"', "platform": "kaggle",
+                      "timeout_h": 0.0003})                 # about one second
+    d = make(world, monkeypatch)
+    run_until(d, lambda r: any("past its timeout" in m for m in world["sent"]))
+    assert d.state["lanes"]["kaggle"]["job"] == "k"       # still followed: no new run on top of a live one
+    assert "kaggle.com/code/" in next(m for m in world["sent"] if "past its timeout" in m)
+    run_until(d, lambda r: statuses(r, "k") == ("done",))
+    assert sum("past its timeout" in m for m in world["sent"]) == 1
+
+
+def test_kaggle_not_answering_the_status_is_told_once(world, monkeypatch):
+    set_queue(world, {"id": "s", "cmd": "python job.py", "platform": "kaggle"})
+    d = make(world, monkeypatch, kaggle_status_notify_s=0)
+    real = d._kaggle
+
+    def no_status(*args, **kw):
+        return (1, "503 Service Unavailable") if args[:2] == ("kernels", "status") else real(*args, **kw)
+
+    d._kaggle = no_status
+    for _ in range(4):
+        d.step()
+    assert d.state["jobs"]["s"]["status"] == "running"      # a failed status still counts as running
+    assert sum("has not answered the status of s" in m for m in world["sent"]) == 1
+    d._kaggle = real
+    run_until(d, lambda r: statuses(r, "s") == ("done",))
+    assert sum("has not answered" in m for m in world["sent"]) == 1
+
+
 def test_an_unreadable_queue_restarts_the_dispatcher_and_notifies(world, monkeypatch):
     d = make(world, monkeypatch, queue_restart_after_s=50, queue_notify_after_s=100)
     assert d.step() and "queue_down" not in d.state

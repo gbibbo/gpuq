@@ -36,6 +36,7 @@ TIMING = {
     "poll_failures": 6,             # consecutive failed polls before the attempt counts as cut
     "beat_s": 300,
     "kaggle_max_run_s": 13 * 3600,  # Kaggle stops sessions at 12 h
+    "kaggle_status_notify_s": 1800, # this long without an answer from `kaggle kernels status`, tell the phone once
     "colab_no_gpu_cooldown_s": 1800, "kaggle_no_quota_cooldown_s": 6 * 3600, "auth_cooldown_s": 3600,
     "no_gpu_notify_after_s": 3 * 3600,
     "queue_restart_after_s": 900,   # this long without the queue, and every such period after, restart
@@ -424,6 +425,39 @@ class Dispatcher:
             m = re.search(r"version (\d+)", out)
             lane["version"] = int(m.group(1)) if m else None
 
+    def _kaggle_status_watch(self, job: dict, lane: dict, answered: bool):
+        """A failed `kaggle kernels status` counts as running, so a long silence of Kaggle is told once."""
+        now = time.time()
+        if answered:
+            if lane.pop("status_failing_since", None) is not None:
+                with self.lock:
+                    save_json(self.state_path, self.state)
+            return
+        since = lane.setdefault("status_failing_since", now)
+        if now - since >= self.t["kaggle_status_notify_s"] and not lane.get("status_notified"):
+            lane["status_notified"] = True
+            self.notify("gpuq", f"Kaggle has not answered the status of {job['id']} for {int((now - since) // 60)} "
+                        f"min. gpuq keeps waiting for it. Check it at https://www.kaggle.com/code/{self.kernel_ref()}")
+        with self.lock:
+            save_json(self.state_path, self.state)
+
+    def _kaggle_overdue_watch(self, job: dict, lane: dict):
+        """Kaggle cannot be stopped from the CLI, and a run that does not end (stuck while starting, hung, or
+        just slow) keeps the lane and may spend weekly GPU hours until Kaggle stops it at 12 h. So when it
+        passes the job's own timeout_h the phone is told once, with the page to cancel it. The lane stays busy
+        until Kaggle reports an end: pushing a new version on top of a live run would be worse."""
+        limit = float(job.get("timeout_h") or 12) * 3600
+        elapsed = time.time() - lane["since"]
+        if elapsed <= limit or lane.get("overdue_notified"):
+            return
+        lane["overdue_notified"] = True
+        with self.lock:
+            save_json(self.state_path, self.state)
+        self.notify("gpuq", f"{job['id']} has been on Kaggle for {elapsed / 3600:.1f} h, past its timeout of "
+                    f"{job.get('timeout_h') or 12} h. Kaggle may still be starting it or it may be stuck, and it may "
+                    f"spend weekly GPU hours. Stop it at https://www.kaggle.com/code/{self.kernel_ref()} (Cancel "
+                    "run); gpuq records the end when Kaggle reports it")
+
     def poll_kaggle(self, by_id: dict):
         lane = self.state["lanes"].get("kaggle")
         if not lane:
@@ -440,8 +474,10 @@ class Dispatcher:
             self.notify("gpuq", f"{job['id']} is running on Kaggle, which cannot be stopped from the CLI. Stop it at "
                         f"https://www.kaggle.com/code/{self.kernel_ref()} (Cancel run). gpuq will record it as cancelled")
         rc, out = self._kaggle("kernels", "status", self.kernel_ref(), timeout=120)
+        self._kaggle_status_watch(job, lane, rc == 0)
         st = kaggle.state(out) if rc == 0 else "running"
         if st == "running":
+            self._kaggle_overdue_watch(job, lane)
             if time.time() - lane["since"] > self.t["kaggle_max_run_s"]:
                 self.finish("kaggle", job, "interrupted", "the Kaggle run passed 13 h")
             elif time.time() - self.last_log_publish.get((job["id"], n), 0) >= self.t["log_publish_s"]:

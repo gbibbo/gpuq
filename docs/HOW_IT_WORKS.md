@@ -162,8 +162,14 @@ it again with the host's current settings. It repeats that every 15 minutes whil
 of reach, and after an hour it sends a notification, which also covers an expired GitHub token.
 `docker restart gpuq` does the same by hand.
 
-**No CLI cancel on Kaggle.** Kaggle CLI 2.2.4 cannot stop a running notebook. `gpuq cancel` records the
-cancellation and the notification links to the page where you click **Cancel run**.
+**No CLI cancel on Kaggle.** The Kaggle CLI (2.2.4, and 2.2.5 too) cannot stop a running notebook. `gpuq
+cancel` records the cancellation and the notification links to the page where you click **Cancel run**. A
+run that does not end keeps the Kaggle lane and may spend weekly GPU hours until Kaggle stops it at 12 hours:
+on 14 November 2026 a version stayed in "Starting..." for two hours. So when a Kaggle run passes its job's
+`timeout_h`, gpuq tells your phone once, with that page, and when `kaggle kernels status` has not answered for
+30 minutes it says so too. It keeps following the run, because pushing a new version on top of a live one
+would be worse. After you click Cancel run, Kaggle can take a minute to show it, and gpuq records the job as
+cancelled at its next check. Give Kaggle jobs a `--timeout-h` close to what they need.
 
 **Numbers differ slightly between platforms.** The same model in FP16 gives results that differ in the
 third or fourth decimal between a Colab T4 and Kaggle's two T4s with different CUDA versions. That is why
