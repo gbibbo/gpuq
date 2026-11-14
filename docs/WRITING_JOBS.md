@@ -44,10 +44,13 @@ A job that follows them can be cut at any moment, any number of times, and ends 
 `Remote` uploads atomically. It writes `<name>.part`, renames it and checks size and MD5, so a file cut
 halfway is never mistaken for a good one. `Checkpoints` keeps the last few checkpoints of a run.
 
-On Colab, `Remote.from_env()` with an rclone remote runs the rclone program, and since November 2026 Colab
-reclaims every VM that runs rclone about 12 minutes after assignment (HOW_IT_WORKS.md, Known issues). On
-Colab, give `Checkpoints` a `Remote` that reaches the storage from Python without rclone, for example a
-subclass of `Remote` over the Google Drive API. On Kaggle and locally, rclone is fine.
+Since November 2026 Colab reclaims every VM that runs the rclone program about 12 minutes after assignment
+(HOW_IT_WORKS.md, Known issues). So on Colab, `Remote.from_env()` reaches a Google Drive remote through the
+Drive API from Python (`gpuq.gdrive.DriveRemote`), with the remote's own OAuth client and token; on Kaggle and
+on your laptop it uses rclone. The files and the interface are the same either way. This needs a Drive remote
+with its own `client_id` (rclone's shared one has no secret to use); with any other remote gpuq warns in the
+log that the VM will be cut. `GPUQ_DRIVE_API=1` or `0` forces the choice. Do not call rclone yourself in a job
+that may run on Colab.
 
 ```python
 import argparse, os

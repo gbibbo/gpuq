@@ -14,7 +14,9 @@ against the local one. A file counts as stored only after put() returns.
     ckpt.save(step, "/tmp/ckpt.pt")                 # every N steps
     remote.put("results.csv", f"results/{run_name}/results.csv")
 
-LocalRemote stores files in a local folder and stands in for the remote in tests.
+LocalRemote stores files in a local folder and stands in for the remote in tests. On Colab, a Google Drive
+remote goes through the Drive API from Python (gdrive.DriveRemote) instead of rclone, because Colab reclaims
+VMs that run rclone; everywhere else rclone does the transfers.
 """
 from __future__ import annotations
 
@@ -67,9 +69,19 @@ class Remote:
         base = env.get("GPUQ_REMOTE")
         if not base:
             raise StorageError("GPUQ_REMOTE is not set. Set storage.remote in gpuq.toml and rclone in gpuq setup")
+        return Remote.open(base, config=env.get("RCLONE_CONFIG"), env=env)
+
+    @staticmethod
+    def open(base: str, config=None, rclone: str = "rclone", env=None, drive_api=None) -> "Remote":
+        """A local folder, or the rclone remote 'name:folder'. On Colab a Google Drive remote with its own OAuth
+        client goes through the Drive API (gdrive.DriveRemote), because Colab reclaims VMs that run rclone.
+        drive_api True or False overrides that choice; GPUQ_DRIVE_API=1 or 0 in the environment does too."""
         if ":" not in base.split("/")[0] or os.path.isabs(base):
             return LocalRemote(base)
-        return RcloneRemote(base, config=env.get("RCLONE_CONFIG"))
+        from . import gdrive
+        if gdrive.use_api(base, config, env) if drive_api is None else drive_api:
+            return gdrive.DriveRemote(base, config=config, env=env)
+        return RcloneRemote(base, config=config, rclone=rclone)
 
     def _retry(self, what: str, fn):
         last = None
