@@ -44,6 +44,11 @@ A job that follows them can be cut at any moment, any number of times, and ends 
 `Remote` uploads atomically. It writes `<name>.part`, renames it and checks size and MD5, so a file cut
 halfway is never mistaken for a good one. `Checkpoints` keeps the last few checkpoints of a run.
 
+On Colab, `Remote.from_env()` with an rclone remote runs the rclone program, and since November 2026 Colab
+reclaims every VM that runs rclone about 12 minutes after assignment (HOW_IT_WORKS.md, Known issues). On
+Colab, give `Checkpoints` a `Remote` that reaches the storage from Python without rclone, for example a
+subclass of `Remote` over the Google Drive API. On Kaggle and locally, rclone is fine.
+
 ```python
 import argparse, os
 import torch

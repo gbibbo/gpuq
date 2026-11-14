@@ -142,8 +142,14 @@ until the end, while VMs with a T4 GPU ran for more than 4 hours. From 2 Novembe
 least 13 November, VMs with a T4 running real jobs died the same way: 58 attempts in a row across two
 queues, none longer than 22 minutes, with the same CLI and the same design that had run for hours. On 13
 November a test job that only multiplied matrices on the GPU, with gpuq's pattern (detached job, one short
-poll a minute), ran 35 minutes, while a real job on the next VM was cut at 12. Colab does not publish its
-limits or say why. Such a cut costs a job that saves every few minutes only its start, about a minute or
+poll a minute), ran 35 minutes, while a real job on the next VM was cut at 12. Tests that changed one thing
+at a time found the trigger: Colab reclaims, about 12 minutes after assignment, every VM that runs the
+rclone program, whatever it connects to. rclone downloading a public file over HTTP was cut; Python making
+the same downloads was not; gpuq installs rclone but never runs it, so its start is safe. The jobs used
+rclone, through `gpuq.storage.RcloneRemote`, to reach the Drive. A job on Colab must not run rclone: reach
+Google Drive through its API from Python instead (TRAKTOR ML's `src/v4/common/drive_api.py` does it with the
+rclone remote's own OAuth client and lived 20 minutes moving real data). Colab does not publish its limits
+or say why. Such a cut costs a job that saves every few minutes only its start, about a minute or
 two, so write jobs that way and split long work into jobs of a few attempts each (gpuq relaunches up to
 10 interruptions per job). Jobs that cannot save every few minutes go to Kaggle (`--platform kaggle`).
 CPU-only jobs go to Kaggle by default (`colab.cpu_jobs = false`).
