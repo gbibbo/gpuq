@@ -178,4 +178,7 @@ a job that started on one platform stays there.
 ## Versions
 
 gpuq was tested with google-colab-cli 0.7.4, kaggle 2.2.4 and rclone 1.75.2, which the Docker image pins.
+The image also keeps python-dateutil 2.x: kaggle 2.2.4 imports `six` without declaring it, and since
+python-dateutil 4.0 (November 2026) nothing else installs `six`, so a fresh image failed at the Kaggle step
+of `gpuq setup` with `No module named 'six'`.
 The jobs run on whatever Python the platform provides (3.12 or 3.13 on Colab in October 2026).

@@ -11,8 +11,10 @@ RUN arch="$(dpkg --print-architecture)" && case "$arch" in arm64|amd64) ;; armhf
     && curl -fsSL -o /tmp/rclone.zip \
        "https://github.com/rclone/rclone/releases/download/v${RCLONE_VERSION}/rclone-v${RCLONE_VERSION}-linux-${arch}.zip" \
     && unzip -q -j /tmp/rclone.zip '*/rclone' -d /usr/local/bin && chmod 755 /usr/local/bin/rclone && rm /tmp/rclone.zip
-# google-colab-cli 0.7.4 and kaggle 2.2.4 are the versions gpuq was tested with
-RUN python3 -m venv /opt/venv && /opt/venv/bin/pip install --no-cache-dir google-colab-cli==0.7.4 kaggle==2.2.4
+# google-colab-cli 0.7.4 and kaggle 2.2.4 are the versions gpuq was tested with. kaggle 2.2.4 imports six
+# without declaring it, and python-dateutil 4.0 (November 2026) no longer brings six, so keep dateutil 2.x
+RUN python3 -m venv /opt/venv && /opt/venv/bin/pip install --no-cache-dir google-colab-cli==0.7.4 kaggle==2.2.4 \
+      "python-dateutil<3"
 ENV PATH=/opt/venv/bin:$PATH PYTHONUNBUFFERED=1 GPUQ_SECRETS=/secrets GPUQ_STATE_DIR=/data/state
 COPY bootstrap.py /opt/gpuq/bootstrap.py
 COPY gpuq-cli /usr/local/bin/gpuq
